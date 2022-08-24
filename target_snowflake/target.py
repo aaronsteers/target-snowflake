@@ -102,7 +102,7 @@ class SnowflakeTarget(Target):
 
     def _prepare_load(self) -> None:
         connection = self.connect()
-        connection.execute('CREATE SCHEMA IF NOT EXISTS "{}"'.format(self.table_schema))
+        connection.execute(f'CREATE SCHEMA IF NOT EXISTS "{self.table_schema}"')
 
         connection.close()
 

@@ -17,10 +17,7 @@ class SnowflakeSchemaMigrator(SchemaMigrator):
     def get_table(self, table_name: str) -> Optional[Dict[str, ColumnType]]:
         res = self.connection.query(
             [
-                'SHOW COLUMNS IN SCHEMA "{}"."{}";'.format(
-                    self.config["snowflake"]["database"],
-                    self.table_schema,
-                ),
+                f'SHOW COLUMNS IN SCHEMA "{self.config["snowflake"]["database"]}"."{self.table_schema}";',
                 """
             SELECT "column_name" AS column_name,
                     CASE PARSE_JSON("data_type"):type::varchar
@@ -34,9 +31,12 @@ class SnowflakeSchemaMigrator(SchemaMigrator):
             ],
             table_name=table_name,
         )
-        if not res:
-            return None
-        return {column["COLUMN_NAME"]: column["DATA_TYPE"] for column in res}
+
+        return (
+            {column["COLUMN_NAME"]: column["DATA_TYPE"] for column in res}
+            if res
+            else None
+        )
 
     def create_table(
         self,
@@ -44,10 +44,8 @@ class SnowflakeSchemaMigrator(SchemaMigrator):
         key_properties: List[str],
         column_definitions: Dict[str, ColumnType],
     ) -> None:
-        sql = 'CREATE TABLE "{}"."{}" ('.format(self.table_schema, table_name)
-        columns = []
-        for name, type in column_definitions.items():
-            columns.append('"{}" {}'.format(name, type))
+        sql = f'CREATE TABLE "{self.table_schema}"."{table_name}" ('
+        columns = [f'"{name}" {type}' for name, type in column_definitions.items()]
         columns.append(
             "PRIMARY KEY (" + ", ".join([kp.upper() for kp in key_properties]) + ")"
         )
@@ -64,19 +62,12 @@ class SnowflakeSchemaMigrator(SchemaMigrator):
 
     def add_column(self, table_name: str, column_name: str, type: ColumnType) -> None:
         self.connection.execute(
-            'ALTER TABLE "{}"."{}" ADD COLUMN "{}" {}'.format(
-                self.table_schema, table_name, column_name, type
-            )
+            f'ALTER TABLE "{self.table_schema}"."{table_name}" ADD COLUMN "{column_name}" {type}'
         )
 
     def rename_column(self, table_name: str, old_name: str, new_name: str) -> None:
         self.connection.execute(
-            'ALTER TABLE "{}"."{}" RENAME COLUMN "{}" to "{}"'.format(
-                self.table_schema,
-                table_name,
-                old_name,
-                new_name,
-            )
+            f'ALTER TABLE "{self.table_schema}"."{table_name}" RENAME COLUMN "{old_name}" to "{new_name}"'
         )
 
     def convert_jsonschema_to_sql_type(self, property_schema: dict) -> str:
@@ -104,7 +95,4 @@ class SnowflakeSchemaMigrator(SchemaMigrator):
             return "FLOAT"  # equivalent to REAL, arbitrary precision
         if "integer" in property_schema["type"]:
             return "NUMBER"  # defaults to NUMBER(38, 0), equivalent to BIGINT
-        if "boolean" in property_schema["type"]:
-            return "BOOLEAN"
-
-        return "TEXT"
+        return "BOOLEAN" if "boolean" in property_schema["type"] else "TEXT"

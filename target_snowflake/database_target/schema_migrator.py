@@ -154,7 +154,7 @@ class SchemaMigrator(metaclass=abc.ABCMeta):
 
     def version_column_name(self, column_name: str) -> str:
         """Return a new name for a versioned column."""
-        return "{}_{}".format(column_name, time.strftime("%Y%m%d_%H%M"))
+        return f'{column_name}_{time.strftime("%Y%m%d_%H%M")}'
 
     @abc.abstractmethod
     def convert_jsonschema_to_sql_type(self, property_schema: dict) -> ColumnType:
